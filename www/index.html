@@ -161,6 +161,11 @@
   #viewer .bar .del{color:#ff6b6b;}
   #viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 12px);left:16px;width:42px;height:42px;
     border-radius:50%;background:var(--glass);border:1px solid var(--border);color:#fff;font-size:20px;backdrop-filter:blur(10px);}
+  #toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%) translateY(20px);
+    z-index:40;background:rgba(20,20,22,.95);border:1px solid var(--border);color:#fff;
+    padding:11px 18px;border-radius:24px;font-size:14px;opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;backdrop-filter:blur(10px);max-width:80%;text-align:center;}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
   .hidden{display:none !important;}
 </style>
 </head>
@@ -238,6 +243,7 @@
 </div>
 
 <canvas id="canvas" class="hidden"></canvas>
+<div id="toast"></div>
 
 <script>
 "use strict";
@@ -532,11 +538,48 @@
   function openViewer(id){viewerId=id;const p=photos.find(x=>x.id===id);if(!p)return;
     vImg.src=p.url;viewer.classList.add('on');}
   vClose.addEventListener('click',()=>viewer.classList.remove('on'));
-  vSave.addEventListener('click',()=>{const p=photos.find(x=>x.id===viewerId);if(p)download(p);});
-  function download(p){const a=document.createElement('a');a.href=p.url;
-    a.download='foto_'+new Date(p.ts).toISOString().replace(/[:.]/g,'-')+'.jpg';
-    document.body.appendChild(a);a.click();a.remove();}
+
+  // Toast
+  let toastT=null;
+  function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');
+    clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600);}
+
+  const CAP=()=>window.Capacitor&&window.Capacitor.Plugins?window.Capacitor.Plugins:null;
+  const b64=p=>p.url.split(',')[1];
+  const fname=p=>'Camara_'+new Date(p.ts).toISOString().replace(/[:.]/g,'-')+'.jpg';
+
+  // Guardar en el almacenamiento del móvil (plugin Filesystem)
+  vSave.addEventListener('click',async()=>{const p=photos.find(x=>x.id===viewerId);if(!p)return;
+    const C=CAP();
+    if(C&&C.Filesystem){
+      try{
+        await C.Filesystem.writeFile({path:fname(p),data:b64(p),directory:'DOCUMENTS',recursive:true});
+        toast('Guardada en Documentos 📁');return;
+      }catch(e){
+        try{ // segundo intento en carpeta de datos de la app
+          await C.Filesystem.writeFile({path:fname(p),data:b64(p),directory:'DATA',recursive:true});
+          toast('Guardada en la app 📁');return;
+        }catch(e2){console.error(e2);}
+      }
+    }
+    download(p);  // navegador
+  });
+  function download(p){const a=document.createElement('a');a.href=p.url;a.download=fname(p);
+    document.body.appendChild(a);a.click();a.remove();toast('Descargada');}
+
+  // Compartir (plugin Share)
   vShare.addEventListener('click',async()=>{const p=photos.find(x=>x.id===viewerId);if(!p)return;
+    const C=CAP();
+    if(C&&C.Filesystem&&C.Share){
+      try{
+        const tmp='share_'+Date.now()+'.jpg';
+        await C.Filesystem.writeFile({path:tmp,data:b64(p),directory:'CACHE'});
+        const u=await C.Filesystem.getUri({path:tmp,directory:'CACHE'});
+        await C.Share.share({title:'Foto',files:[u.uri]});
+        return;
+      }catch(e){if(e&&/cancel/i.test(e.message||''))return;console.error(e);}
+    }
+    // Fallback web
     try{const blob=await(await fetch(p.url)).blob();const f=new File([blob],'foto.jpg',{type:'image/jpeg'});
       if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Foto'});
       else download(p);}catch(_){download(p);}});
@@ -561,3 +604,4 @@
 </script>
 </body>
 </html>
+
