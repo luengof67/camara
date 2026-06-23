@@ -283,18 +283,20 @@
   prog.style.strokeDasharray=CIRC;prog.style.strokeDashoffset=CIRC;
 
   // ---------- Cámara ----------
+  let micWanted=false;            // si el usuario activó el oído, pedimos audio junto a la cámara
   async function startCamera(){
     notice.classList.remove('on');stopStream();
-    const c={audio:false,video:{facingMode:facing==='user'?'user':{ideal:'environment'},
+    const c={audio:micWanted,video:{facingMode:facing==='user'?'user':{ideal:'environment'},
       width:{ideal:1920},height:{ideal:1080}}};
     try{stream=await navigator.mediaDevices.getUserMedia(c);}
-    catch(e){try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});}
+    catch(e){try{stream=await navigator.mediaDevices.getUserMedia({audio:micWanted,video:true});}
       catch(err){return showNotice(err);}}
     video.srcObject=stream;track=stream.getVideoTracks()[0];
     try{caps=track.getCapabilities?track.getCapabilities():{};}catch(_){caps={};}
     setupZoom();refreshFlashUI();applyFlashState();
     video.onloadedmetadata=()=>recomputeRatio();
     setTimeout(recomputeRatio,300);
+    if(micWanted&&stream.getAudioTracks().length)startAnalyser();
   }
   function stopStream(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;track=null;}}
   function showNotice(err){notice.classList.add('on');
@@ -449,29 +451,40 @@
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
   // ---------- Autodisparo por sonido ----------
-  let audioStream=null,audioCtx=null,analyser=null,soundRAF=null,lastShot=0;
+  let audioCtx=null,analyser=null,soundRAF=null,lastShot=0;
   btnEar.addEventListener('click',async()=>{
-    if(audioStream){stopSound();return;}
-    try{audioStream=await navigator.mediaDevices.getUserMedia({audio:true});}
-    catch(_){alert('No se pudo acceder al micrófono. Revisa el permiso.');return;}
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    const src=audioCtx.createMediaStreamSource(audioStream);
-    analyser=audioCtx.createAnalyser();analyser.fftSize=512;src.connect(analyser);
-    btnEar.classList.add('active');earBadge.classList.add('on');
-    const buf=new Uint8Array(analyser.fftSize);
-    const loop=()=>{
-      analyser.getByteTimeDomainData(buf);
-      let sum=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sum+=v*v;}
-      const rms=Math.sqrt(sum/buf.length);
-      levelBar.style.width=Math.min(100,rms*350)+'%';
-      if(rms>0.18&&!busy&&Date.now()-lastShot>2500){takePhoto();}
-      soundRAF=requestAnimationFrame(loop);
-    };loop();
+    if(micWanted){ // apagar
+      micWanted=false;stopAnalyser();btnEar.classList.remove('active');earBadge.classList.remove('on');
+      await startCamera();   // reabre la cámara sin audio
+      return;
+    }
+    micWanted=true;btnEar.classList.add('active');earBadge.classList.add('on');
+    await startCamera();     // reabre pidiendo cámara + micrófono juntos
+    if(!stream||!stream.getAudioTracks().length){
+      micWanted=false;btnEar.classList.remove('active');earBadge.classList.remove('on');
+      alert('No se pudo activar el micrófono. Comprueba el permiso en Ajustes.');
+    }
   });
-  function stopSound(){if(soundRAF)cancelAnimationFrame(soundRAF);
-    if(audioStream){audioStream.getTracks().forEach(t=>t.stop());audioStream=null;}
-    if(audioCtx){audioCtx.close();audioCtx=null;}
-    btnEar.classList.remove('active');earBadge.classList.remove('on');levelBar.style.width='0';}
+  function startAnalyser(){
+    stopAnalyser();
+    try{
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const src=audioCtx.createMediaStreamSource(stream);
+      analyser=audioCtx.createAnalyser();analyser.fftSize=512;src.connect(analyser);
+      const buf=new Uint8Array(analyser.fftSize);
+      const loop=()=>{
+        analyser.getByteTimeDomainData(buf);
+        let sum=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sum+=v*v;}
+        const rms=Math.sqrt(sum/buf.length);
+        levelBar.style.width=Math.min(100,rms*350)+'%';
+        if(rms>0.18&&!busy&&Date.now()-lastShot>2500)takePhoto();
+        soundRAF=requestAnimationFrame(loop);
+      };loop();
+    }catch(e){console.error(e);}
+  }
+  function stopAnalyser(){if(soundRAF)cancelAnimationFrame(soundRAF);soundRAF=null;
+    if(audioCtx){try{audioCtx.close();}catch(_){}audioCtx=null;}levelBar.style.width='0';}
+  function stopSound(){stopAnalyser();}
 
   let actx=null;
   function clickSound(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
