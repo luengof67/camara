@@ -548,21 +548,26 @@
   const b64=p=>p.url.split(',')[1];
   const fname=p=>'Camara_'+new Date(p.ts).toISOString().replace(/[:.]/g,'-')+'.jpg';
 
-  // Guardar en el almacenamiento del móvil (plugin Filesystem)
+  // Guardar en la galería del móvil (plugin Media) → respaldo: Documentos → descarga web
   vSave.addEventListener('click',async()=>{const p=photos.find(x=>x.id===viewerId);if(!p)return;
     const C=CAP();
+    if(C&&C.Media){
+      try{
+        await C.Media.savePhoto({path:p.url,fileName:fname(p).replace(/\.jpg$/,'')});
+        toast('Guardada en la galería ✅');return;
+      }catch(e){console.error('Media.savePhoto falló',e);}
+    }
     if(C&&C.Filesystem){
       try{
         await C.Filesystem.writeFile({path:fname(p),data:b64(p),directory:'DOCUMENTS',recursive:true});
         toast('Guardada en Documentos 📁');return;
       }catch(e){
-        try{ // segundo intento en carpeta de datos de la app
-          await C.Filesystem.writeFile({path:fname(p),data:b64(p),directory:'DATA',recursive:true});
+        try{await C.Filesystem.writeFile({path:fname(p),data:b64(p),directory:'DATA',recursive:true});
           toast('Guardada en la app 📁');return;
         }catch(e2){console.error(e2);}
       }
     }
-    download(p);  // navegador
+    download(p);
   });
   function download(p){const a=document.createElement('a');a.href=p.url;a.download=fname(p);
     document.body.appendChild(a);a.click();a.remove();toast('Descargada');}
