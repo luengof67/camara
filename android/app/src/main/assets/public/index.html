@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1320">
+<title>APILA</title>
+<style>
+  :root{
+    --bg-1:#1a1320;
+    --bg-2:#251a2e;
+    --panel:#2d2235;
+    --panel-soft:#372a42;
+    --board-bg:#160f1d;
+    --grid:#2c2138;
+    --text:#f5ede4;
+    --text-dim:#a594b0;
+    --accent:#f4b942;        /* azafrán */
+    --accent-soft:#f4b94233;
+    --danger:#e8553c;
+    --radius:16px;
+    /* Cristal (glassmorphism) reutilizable */
+    --glass-bg:linear-gradient(155deg, rgba(255,255,255,0.12), rgba(255,255,255,0.035));
+    --glass-bg-dim:linear-gradient(155deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    --glass-border:1px solid rgba(255,255,255,0.16);
+    --glass-hi:inset 0 1px 0 rgba(255,255,255,0.22);
+    --glass-shadow:0 8px 22px -14px rgba(0,0,0,0.7);
+    --glass-blur:blur(12px) saturate(140%);
+    --safe-t:env(safe-area-inset-top,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-l:env(safe-area-inset-left,0px);
+    --safe-r:env(safe-area-inset-right,0px);
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+
+  html,body{
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    background:
+      radial-gradient(55% 45% at 12% 8%, rgba(176,106,179,0.20) 0%, transparent 60%),
+      radial-gradient(50% 40% at 92% 16%, rgba(244,185,66,0.14) 0%, transparent 60%),
+      radial-gradient(70% 55% at 50% 108%, rgba(63,199,192,0.12) 0%, transparent 60%),
+      radial-gradient(120% 80% at 50% -10%, var(--bg-2) 0%, var(--bg-1) 60%);
+    background-attachment:fixed;
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    height:100dvh;
+    padding:
+      calc(var(--safe-t) + 10px)
+      calc(var(--safe-r) + 12px)
+      calc(var(--safe-b) + 10px)
+      calc(var(--safe-l) + 12px);
+  }
+
+  .app{
+    width:100%;
+    max-width:480px;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  /* ---------- Cabecera ---------- */
+  .header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding:0 2px;
+  }
+  .brand{
+    font-size:clamp(26px,8vw,34px);
+    font-weight:800;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    line-height:1;
+    background:linear-gradient(180deg,var(--text) 0%, var(--accent) 180%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .brand small{
+    display:block;
+    font-size:10px;
+    letter-spacing:.34em;
+    font-weight:600;
+    color:var(--text-dim);
+    margin-top:4px;
+  }
+  .record{
+    text-align:right;
+    line-height:1.15;
+    background:var(--glass-bg-dim);
+    border:var(--glass-border);
+    box-shadow:var(--glass-hi);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    border-radius:12px;
+    padding:6px 12px;
+  }
+  .record .label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim);}
+  .record .value{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent);}
+
+  /* ---------- Barra de datos ---------- */
+  .stats{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr auto;
+    gap:8px;
+    align-items:stretch;
+  }
+  .stat{
+    background:var(--glass-bg);
+    border:var(--glass-border);
+    box-shadow:var(--glass-hi), var(--glass-shadow);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    border-radius:12px;
+    padding:8px 10px;
+  }
+  .stat .label{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);}
+  .stat .value{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:2px;}
+  .next{
+    background:var(--glass-bg);
+    border:var(--glass-border);
+    box-shadow:var(--glass-hi), var(--glass-shadow);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    border-radius:12px;
+    padding:6px 8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
+  .next .label{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);}
+  #nextCanvas{display:block;width:56px;height:42px;}
+
+  /* ---------- Tablero ---------- */
+  .board-wrap{
+    flex:1 1 auto;
+    min-height:0;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .board-frame{
+    position:relative;
+    background:var(--glass-bg-dim), rgba(18,12,24,0.45);
+    border:var(--glass-border);
+    border-radius:var(--radius);
+    padding:7px;
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:
+      var(--glass-hi),
+      inset 0 0 0 1px #ffffff0a,
+      0 22px 50px -24px #000;
+  }
+  #boardCanvas{
+    display:block;
+    border-radius:11px;
+    background:rgba(13,9,18,0.55);
+    box-shadow:inset 0 2px 10px -4px #000;
+    touch-action:none;
+  }
+
+  /* ---------- Superposiciones ---------- */
+  .overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:16px;
+    padding:22px;
+    overflow-y:auto;
+    background:linear-gradient(160deg, rgba(36,26,46,0.72), rgba(18,12,24,0.82));
+    backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);
+    box-shadow:var(--glass-hi);
+    border-radius:var(--radius);
+    z-index:5;
+  }
+  .overlay[hidden]{display:none;}
+  .overlay h2{
+    font-size:clamp(22px,7vw,30px);
+    font-weight:800;
+    letter-spacing:.04em;
+  }
+  .overlay p{color:var(--text-dim);font-size:14px;line-height:1.5;max-width:24ch;}
+  .overlay .big{
+    font-size:46px;
+    font-weight:800;
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+    line-height:1;
+  }
+  .overlay .sub{font-size:13px;color:var(--text-dim);}
+
+  .btn{
+    appearance:none;
+    cursor:pointer;
+    font-family:inherit;
+    font-weight:700;
+    color:var(--text);
+    background:var(--glass-bg);
+    border:var(--glass-border);
+    box-shadow:var(--glass-hi), var(--glass-shadow);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    border-radius:14px;
+    transition:transform .06s ease, background .15s ease;
+    touch-action:manipulation;
+  }
+  .btn:active{transform:scale(.95);}
+  .btn-primary{
+    background:
+      linear-gradient(160deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 45%),
+      linear-gradient(180deg,var(--accent) 0%, #d99a25 100%);
+    color:#2a1d08;
+    border:1px solid rgba(255,255,255,0.3);
+    padding:15px 34px;
+    font-size:16px;
+    letter-spacing:.04em;
+    box-shadow:0 10px 24px -10px var(--accent);
+  }
+
+  /* ---------- Mandos ---------- */
+  .controls{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .pad-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr 1fr;
+    gap:8px;
+  }
+  .pad{
+    height:58px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:22px;
+  }
+  .pad svg{width:26px;height:26px;fill:none;stroke:var(--text);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+  .pad.rotate svg{stroke:var(--accent);}
+  .drop-row{display:grid;grid-template-columns:1fr auto;gap:8px;}
+  .pad-drop{
+    height:54px;
+    font-size:15px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  .pad-drop svg{margin-right:8px;}
+  .pad-pause{
+    width:54px;height:54px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pad-pause svg{width:22px;height:22px;fill:var(--text-dim);stroke:none;}
+
+  /* ---------- Botones de icono de cabecera (sonido y música) ---------- */
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .icon-toggle{
+    width:42px;height:42px;border-radius:12px;
+    border:var(--glass-border);
+    background:var(--glass-bg);
+    box-shadow:var(--glass-hi), var(--glass-shadow);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    flex:0 0 auto;transition:transform .06s ease;
+  }
+  .icon-toggle:active{transform:scale(.92);}
+  .icon-toggle svg{width:22px;height:22px;}
+  .icon-toggle .slash{display:none;stroke:var(--danger);stroke-width:2.4;stroke-linecap:round;}
+  .icon-toggle.is-off .slash{display:block;}
+  /* sonido */
+  .sound-toggle .spk{fill:var(--accent);stroke:none;}
+  .sound-toggle .wave{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;}
+  .sound-toggle.is-off .spk{fill:var(--text-dim);}
+  .sound-toggle.is-off .wave{display:none;}
+  /* música */
+  .music-toggle .note{fill:var(--accent);stroke:none;}
+  .music-toggle .stem{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .music-toggle.is-off .note{fill:var(--text-dim);}
+  .music-toggle.is-off .stem{stroke:var(--text-dim);}
+
+  /* ---------- Panel de opciones (inicio) ---------- */
+  .options{display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px;}
+  .opt-group{display:flex;flex-direction:column;gap:7px;}
+  .opt-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);text-align:left;}
+  .seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+  .seg-btn{
+    padding:11px 4px;border-radius:11px;
+    border:var(--glass-border);
+    background:var(--glass-bg-dim);
+    box-shadow:var(--glass-hi);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    color:var(--text-dim);
+    font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;
+    transition:background .15s ease,color .15s ease,transform .06s ease;
+  }
+  .seg-btn:active{transform:scale(.96);}
+  .seg-btn.is-active{
+    background:linear-gradient(160deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 45%), var(--accent);
+    color:#2a1d08;border-color:rgba(255,255,255,0.3);
+  }
+  .stepper{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--glass-bg-dim);border:var(--glass-border);
+    box-shadow:var(--glass-hi);
+    -webkit-backdrop-filter:var(--glass-blur);
+    backdrop-filter:var(--glass-blur);
+    border-radius:11px;padding:5px;
+  }
+  .step-btn{
+    width:48px;height:40px;border:var(--glass-border);border-radius:8px;
+    background:var(--glass-bg);box-shadow:var(--glass-hi);
+    color:var(--text);font-size:24px;font-weight:700;
+    cursor:pointer;font-family:inherit;line-height:1;
+    transition:transform .06s ease, background .15s ease;
+  }
+  .step-btn:active{background:var(--accent-soft);transform:scale(.94);}
+  .step-val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;}
+
+  @media (prefers-reduced-motion: reduce){
+    .btn,.btn:active,.sound-toggle:active{transition:none;}
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+
+    <header class="header">
+      <div class="brand">Apila<small>bloques</small></div>
+      <div class="header-right">
+        <button class="icon-toggle music-toggle" id="musicToggle" aria-label="Activar o silenciar música">
+          <svg viewBox="0 0 24 24">
+            <path class="stem" d="M9 18V5l12-2v13"/>
+            <circle class="note" cx="6" cy="18" r="3"/>
+            <circle class="note" cx="18" cy="16" r="3"/>
+            <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+          </svg>
+        </button>
+        <button class="icon-toggle sound-toggle" id="soundToggle" aria-label="Activar o silenciar sonido">
+          <svg viewBox="0 0 24 24">
+            <path class="spk" d="M11 5 6 9H3v6h3l5 4V5z"/>
+            <path class="wave" d="M15.5 8.5a4.5 4.5 0 0 1 0 7"/>
+            <path class="wave" d="M18 6a8 8 0 0 1 0 12"/>
+            <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+          </svg>
+        </button>
+        <div class="record">
+          <div class="label">Récord</div>
+          <div class="value" id="record">0</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat">
+        <div class="label">Puntos</div>
+        <div class="value" id="score">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Nivel</div>
+        <div class="value" id="level">1</div>
+      </div>
+      <div class="stat">
+        <div class="label">Líneas</div>
+        <div class="value" id="lines">0</div>
+      </div>
+      <div class="next">
+        <div class="label">Sig.</div>
+        <canvas id="nextCanvas" width="112" height="84"></canvas>
+      </div>
+    </section>
+
+    <div class="board-wrap">
+      <div class="board-frame">
+        <canvas id="boardCanvas"></canvas>
+
+        <!-- Inicio -->
+        <div class="overlay" id="startOverlay">
+          <h2>Apila bloques</h2>
+          <p>Completa líneas para sumar puntos. Elige cómo quieres jugar:</p>
+
+          <div class="options">
+            <div class="opt-group">
+              <div class="opt-label">Dificultad</div>
+              <div class="seg" id="diffSeg">
+                <button class="seg-btn" data-diff="facil">Fácil</button>
+                <button class="seg-btn" data-diff="normal">Normal</button>
+                <button class="seg-btn" data-diff="dificil">Difícil</button>
+              </div>
+            </div>
+            <div class="opt-group">
+              <div class="opt-label">Velocidad inicial (nivel)</div>
+              <div class="stepper">
+                <button class="step-btn" id="lvlDown" aria-label="Bajar nivel inicial">−</button>
+                <span class="step-val" id="startLevelVal">1</span>
+                <button class="step-btn" id="lvlUp" aria-label="Subir nivel inicial">+</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="startBtn">Jugar</button>
+          <div class="sub">Desliza para mover · Toca para girar</div>
+        </div>
+
+        <!-- Pausa -->
+        <div class="overlay" id="pauseOverlay" hidden>
+          <h2>En pausa</h2>
+          <button class="btn btn-primary" id="resumeBtn">Continuar</button>
+          <button class="btn" id="restartFromPause" style="padding:12px 28px;font-size:14px;">Reiniciar</button>
+        </div>
+
+        <!-- Fin -->
+        <div class="overlay" id="overOverlay" hidden>
+          <h2>Fin de la partida</h2>
+          <div class="big" id="finalScore">0</div>
+          <div class="sub" id="finalMsg">Buen intento</div>
+          <button class="btn btn-primary" id="againBtn">Jugar de nuevo</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="controls">
+      <div class="pad-row">
+        <button class="btn pad" id="leftBtn" aria-label="Mover a la izquierda">
+          <svg viewBox="0 0 24 24"><polyline points="15 5 8 12 15 19"/></svg>
+        </button>
+        <button class="btn pad rotate" id="rotateBtn" aria-label="Girar">
+          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 20 4 13 11 13"/></svg>
+        </button>
+        <button class="btn pad" id="downBtn" aria-label="Bajar">
+          <svg viewBox="0 0 24 24"><polyline points="5 9 12 16 19 9"/></svg>
+        </button>
+        <button class="btn pad" id="rightBtn" aria-label="Mover a la derecha">
+          <svg viewBox="0 0 24 24"><polyline points="9 5 16 12 9 19"/></svg>
+        </button>
+      </div>
+      <div class="drop-row">
+        <button class="btn pad-drop" id="hardBtn" aria-label="Soltar">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px"><polyline points="6 4 12 10 18 4"/><polyline points="6 12 12 18 18 12"/></svg>
+          Soltar
+        </button>
+        <button class="btn pad-pause" id="pauseBtn" aria-label="Pausa">
+          <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Configuración ----------
+  var COLS = 10, ROWS = 20;
+  var EMPTY = null;
+
+  var PIECES = {
+    I:{c:"#3FC7C0", s:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]]},
+    O:{c:"#F4B942", s:[[1,1],[1,1]]},
+    T:{c:"#B06AB3", s:[[0,1,0],[1,1,1],[0,0,0]]},
+    S:{c:"#76C043", s:[[0,1,1],[1,1,0],[0,0,0]]},
+    Z:{c:"#E8553C", s:[[1,1,0],[0,1,1],[0,0,0]]},
+    J:{c:"#4A7FE0", s:[[1,0,0],[1,1,1],[0,0,0]]},
+    L:{c:"#F08A3C", s:[[0,0,1],[1,1,1],[0,0,0]]}
+  };
+  var KEYS = ["I","O","T","S","Z","J","L"];
+
+  // Velocidad de caída por nivel (ms). Empieza tranquilo (más sencillo).
+  var SPEEDS = [800,720,630,550,470,380,300,230,180,140,110,90,80,70,60];
+
+  // Dificultad: multiplicador de velocidad y líneas para subir de nivel.
+  var DIFF = {
+    facil:   {mult:1.35, perLevel:12},
+    normal:  {mult:1.00, perLevel:10},
+    dificil: {mult:0.66, perLevel:7}
+  };
+
+  // ---------- Estado ----------
+  var board, piece, nextPiece, bag = [];
+  var score = 0, lines = 0, level = 1, record = 0;
+  var running = false, paused = false, gameOver = true;
+  var dropTimer = 0, lastTime = 0, rafId = null;
+  var clearing = null; // animación de líneas
+
+  // Preferencias
+  var difficulty = "normal", startLevel = 1, soundOn = true;
+
+  // ---------- Audio (sintetizado, sin archivos) ----------
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  var actx = null;
+  function ensureAudio(){
+    if(!AudioCtx) return;
+    if(!actx){ try{ actx = new AudioCtx(); }catch(e){ actx = null; } }
+    if(actx && actx.state === "suspended"){ actx.resume(); }
+  }
+  // Ondas de pulso (timbre clásico de NES). duty 0.5 = cuadrada, 0.25 / 0.125 = más "nasal".
+  var pulseCache = {};
+  function pulseWave(duty){
+    if(!actx) return null;
+    var key = duty.toFixed(3);
+    if(pulseCache[key]) return pulseCache[key];
+    var N = 28;
+    var real = new Float32Array(N), imag = new Float32Array(N);
+    for(var i=1;i<N;i++){
+      real[i] = (2/(i*Math.PI)) * Math.sin(i*Math.PI*duty);
+    }
+    var w = actx.createPeriodicWave(real, imag);
+    pulseCache[key] = w;
+    return w;
+  }
+
+  // Voz de bajo nivel: programa una nota en un instante absoluto del audio.
+  function voice(freq, atTime, dur, opts){
+    if(!actx) return;
+    opts = opts || {};
+    var o = actx.createOscillator(), g = actx.createGain();
+    if(opts.duty){ var w = pulseWave(opts.duty); if(w){ o.setPeriodicWave(w); } else { o.type = "square"; } }
+    else { o.type = opts.type || "square"; }
+    o.frequency.setValueAtTime(freq, atTime);
+    if(opts.slideTo){ o.frequency.linearRampToValueAtTime(opts.slideTo, atTime + dur); }
+    var vol = opts.vol || 0.12;
+    g.gain.setValueAtTime(0, atTime);
+    g.gain.linearRampToValueAtTime(vol, atTime + 0.004);   // ataque casi instantáneo
+    g.gain.setValueAtTime(vol, atTime + dur * 0.6);
+    g.gain.linearRampToValueAtTime(0, atTime + dur);       // corte seco
+    o.connect(g); g.connect(actx.destination);
+    o.start(atTime); o.stop(atTime + dur + 0.01);
+  }
+
+  // Un "blip" de efecto: respeta el interruptor de efectos (soundOn).
+  function blip(freq, start, dur, opts){
+    if(!soundOn || !actx) return;
+    voice(freq, actx.currentTime + start, dur, opts);
+  }
+
+  // Toca una secuencia de notas (arpegio escalonado, muy "chip").
+  function arp(notes, step, dur, opts){
+    for(var i=0;i<notes.length;i++){ blip(notes[i], i*step, dur, opts); }
+  }
+
+  // Canal de ruido (percusión, como el canal 4 del Game Boy).
+  var noiseBuffer = null;
+  function getNoise(){
+    if(noiseBuffer || !actx) return noiseBuffer;
+    var len = Math.floor(actx.sampleRate * 0.5);
+    noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+    var d = noiseBuffer.getChannelData(0);
+    for(var i=0;i<len;i++){ d[i] = Math.random()*2-1; }
+    return noiseBuffer;
+  }
+  function noiseAt(atTime, dur, opts){
+    if(!actx) return;
+    opts = opts || {};
+    var src = actx.createBufferSource();
+    src.buffer = getNoise(); src.loop = true;
+    var filt = actx.createBiquadFilter();
+    filt.type = opts.type || "highpass";
+    filt.frequency.value = opts.freq || 1400;
+    var g = actx.createGain();
+    g.gain.setValueAtTime(opts.vol || 0.08, atTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, atTime + dur);
+    src.connect(filt); filt.connect(g); g.connect(actx.destination);
+    src.start(atTime); src.stop(atTime + dur + 0.02);
+  }
+  function noise(start, dur, opts){
+    if(!soundOn || !actx) return;
+    noiseAt(actx.currentTime + start, dur, opts);
+  }
+
+  // Efectos al estilo Game Boy (DMG): leads finos al 12,5 %, barridos de tono y ruido.
+  var SFX = {
+    move:   function(){ blip(262, 0, 0.04, {duty:0.125, vol:0.04}); },
+    rotate: function(){ blip(660, 0, 0.06, {duty:0.125, vol:0.07, slideTo:990}); },          // "pew" arriba
+    lock:   function(){ noise(0, 0.05, {type:"bandpass", freq:1700, vol:0.08}); blip(110, 0, 0.05, {duty:0.5, vol:0.05}); },
+    hard:   function(){ blip(880, 0, 0.10, {duty:0.125, vol:0.08, slideTo:160}); noise(0.02, 0.05, {type:"highpass", freq:2200, vol:0.05}); }, // "pew" abajo + golpe
+    line:   function(n){
+              var seq=[659,784,988,1319,1568], count=Math.min(n+1,5);
+              for(var i=0;i<count;i++){ blip(seq[i], i*0.045, 0.09, {duty:0.125, vol:0.09}); }
+              if(n>=4){ blip(1568, count*0.045+0.02, 0.18, {duty:0.25, vol:0.10, slideTo:2093}); } // ¡Tetris!
+            },
+    level:  function(){ arp([523,659,880,1047], 0.055, 0.11, {duty:0.125, vol:0.09}); blip(1319, 0.22, 0.18, {duty:0.25, vol:0.09}); },
+    over:   function(){
+              blip(587, 0, 0.6, {duty:0.25, vol:0.10, slideTo:110});   // barrido descendente largo
+              noise(0.5, 0.35, {type:"lowpass", freq:600, vol:0.08});  // golpe final
+            }
+  };
+
+  // ---------- Música de fondo (melodía chiptune en bucle) ----------
+  // Tabla de frecuencias por nombre de nota (octavas 2 a 6).
+  var NOTE = {};
+  (function(){
+    var n=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    for(var o=2;o<=6;o++){ for(var i=0;i<12;i++){
+      NOTE[n[i]+o] = 440 * Math.pow(2, ((o-4)*12 + (i-9))/12);
+    }}
+  })();
+  function hz(name){ return name ? (NOTE[name]||440) : 0; }
+
+  // Melodía melancólica de 8 compases en La menor: Am – Em – F – C – Dm – Am – E – Am.
+  // Una corchea por paso (null = silencio). El leading-tone G# en el compás de Mi da el aire nostálgico.
+  var LEAD = [
+    "E5",null,"C5","B4","A4",null,"C5","B4",   // Am
+    "B4",null,"G4","A4","B4",null,"E5","B4",    // Em
+    "C5",null,"A4","G4","F4",null,"A4","C5",    // F
+    "G4",null,"E4","G4","C5",null,"B4","G4",    // C
+    "A4",null,"F4","A4","D5",null,"C5","A4",    // Dm
+    "C5",null,"A4","B4","C5",null,"E5","C5",    // Am
+    "B4",null,"G#4","B4","E5",null,"D5","B4",   // E
+    "A4",null,"E4","A4","C5","B4","A4",null     // Am
+  ];
+  // Bajo: raíz/quinta por compás (notas en pasos pares, null mantiene).
+  var BASS = [
+    "A2",null,"E3",null,"A2",null,"E3",null,   // Am
+    "E2",null,"B2",null,"E2",null,"B2",null,   // Em
+    "F2",null,"C3",null,"F2",null,"C3",null,   // F
+    "C3",null,"G3",null,"C3",null,"G3",null,   // C
+    "D3",null,"A2",null,"D3",null,"A2",null,   // Dm
+    "A2",null,"E3",null,"A2",null,"E3",null,   // Am
+    "E2",null,"B2",null,"E2",null,"B2",null,   // E
+    "A2",null,"E3",null,"A2",null,"E3",null    // Am
+  ];
+
+  // El tempo se acelera con el nivel (como los Tetris clásicos), con un límite.
+  function stepDur(){
+    return Math.max(0.085, 0.165 * Math.pow(0.95, level - 1));
+  }
+
+  var music = { on:true, playing:false, step:0, nextTime:0, timer:null };
+
+  function scheduleStep(step, time, sd){
+    var L = LEAD[step];
+    if(L){ voice(hz(L), time, sd*0.95, {duty:0.25, vol:0.05}); }    // lead
+    var B = BASS[step];
+    if(B){ voice(hz(B), time, sd*1.9,  {duty:0.5,  vol:0.045}); }   // bajo
+    var pos = step % 8;                                             // percusión (canal de ruido)
+    if(pos===0 || pos===4){ noiseAt(time, 0.07, {type:"lowpass",  freq:190,  vol:0.06}); }  // bombo
+    if(pos===2 || pos===6){ noiseAt(time, 0.03, {type:"highpass", freq:7000, vol:0.032}); } // hi-hat
+  }
+  function musicTick(){
+    if(!music.playing || !actx) return;
+    var ahead = actx.currentTime + 0.12;
+    while(music.nextTime < ahead){
+      var sd = stepDur();
+      scheduleStep(music.step, music.nextTime, sd);
+      music.nextTime += sd;
+      music.step = (music.step + 1) % LEAD.length;
+    }
+  }
+  function startMusic(){
+    if(!music.on || !actx || music.playing) return;
+    music.playing = true;
+    music.step = 0;
+    music.nextTime = actx.currentTime + 0.1;
+    if(music.timer) clearInterval(music.timer);
+    music.timer = setInterval(musicTick, 25);
+  }
+  function stopMusic(){
+    music.playing = false;
+    if(music.timer){ clearInterval(music.timer); music.timer = null; }
+  }
+
+  // ---------- Lienzos ----------
+  var boardCanvas = document.getElementById("boardCanvas");
+  var bctx = boardCanvas.getContext("2d");
+  var nextCanvas = document.getElementById("nextCanvas");
+  var nctx = nextCanvas.getContext("2d");
+  var CELL = 24, DPR = 1;
+
+  // ---------- Atajos a la interfaz ----------
+  var elScore=document.getElementById("score"),
+      elLevel=document.getElementById("level"),
+      elLines=document.getElementById("lines"),
+      elRecord=document.getElementById("record"),
+      startOverlay=document.getElementById("startOverlay"),
+      pauseOverlay=document.getElementById("pauseOverlay"),
+      overOverlay=document.getElementById("overOverlay"),
+      finalScore=document.getElementById("finalScore"),
+      finalMsg=document.getElementById("finalMsg"),
+      soundToggle=document.getElementById("soundToggle"),
+      musicToggle=document.getElementById("musicToggle");
+
+  // ---------- Utilidades ----------
+  function newBoard(){
+    var b=[];
+    for(var y=0;y<ROWS;y++){b.push(new Array(COLS).fill(EMPTY));}
+    return b;
+  }
+
+  function refillBag(){
+    bag = KEYS.slice();
+    for(var i=bag.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var t=bag[i];bag[i]=bag[j];bag[j]=t;
+    }
+  }
+  function nextFromBag(){
+    if(bag.length===0) refillBag();
+    return bag.pop();
+  }
+
+  function makePiece(type){
+    var def=PIECES[type];
+    var shape=def.s.map(function(r){return r.slice();});
+    return {
+      type:type,
+      color:def.c,
+      shape:shape,
+      x:Math.floor((COLS-shape[0].length)/2),
+      y:type==="I"?-1:0
+    };
+  }
+
+  function rotateCW(m){
+    var n=m.length, res=[];
+    for(var i=0;i<n;i++){
+      res.push([]);
+      for(var j=0;j<n;j++){ res[i].push(m[n-1-j][i]); }
+    }
+    return res;
+  }
+
+  function collides(p, shape, x, y){
+    shape=shape||p.shape; x=(x===undefined)?p.x:x; y=(y===undefined)?p.y:y;
+    for(var r=0;r<shape.length;r++){
+      for(var c=0;c<shape[r].length;c++){
+        if(!shape[r][c]) continue;
+        var nx=x+c, ny=y+r;
+        if(nx<0||nx>=COLS||ny>=ROWS) return true;
+        if(ny>=0 && board[ny][nx]) return true;
+      }
+    }
+    return false;
+  }
+
+  // ---------- Acciones ----------
+  function spawn(){
+    piece = nextPiece || makePiece(nextFromBag());
+    nextPiece = makePiece(nextFromBag());
+    drawNext();
+    if(collides(piece)){ endGame(); }
+  }
+
+  function move(dx){
+    if(!active()) return;
+    if(!collides(piece, piece.shape, piece.x+dx, piece.y)){
+      piece.x+=dx; SFX.move(); draw();
+    }
+  }
+
+  function rotate(){
+    if(!active()) return;
+    if(piece.type==="O"){ return; }
+    var rotated=rotateCW(piece.shape);
+    var kicks=[0,1,-1,2,-2];
+    for(var i=0;i<kicks.length;i++){
+      if(!collides(piece, rotated, piece.x+kicks[i], piece.y)){
+        piece.shape=rotated; piece.x+=kicks[i]; SFX.rotate(); draw(); return;
+      }
+    }
+  }
+
+  function softDrop(){
+    if(!active()) return;
+    if(!collides(piece, piece.shape, piece.x, piece.y+1)){
+      piece.y++; score+=1; updateStats(); draw();
+    }else{ lockPiece(); }
+    dropTimer=0;
+  }
+
+  function hardDrop(){
+    if(!active()) return;
+    var d=0;
+    while(!collides(piece, piece.shape, piece.x, piece.y+1)){ piece.y++; d++; }
+    score+=d*2; updateStats();
+    SFX.hard();
+    lockPiece();
+  }
+
+  function lockPiece(){
+    for(var r=0;r<piece.shape.length;r++){
+      for(var c=0;c<piece.shape[r].length;c++){
+        if(piece.shape[r][c]){
+          var ny=piece.y+r, nx=piece.x+c;
+          if(ny<0){ endGame(); return; }
+          board[ny][nx]=piece.color;
+        }
+      }
+    }
+    var full=[];
+    for(var y=0;y<ROWS;y++){
+      if(board[y].every(function(v){return v;})) full.push(y);
+    }
+    if(full.length){
+      SFX.line(full.length);
+      clearing={rows:full, t:0};
+    }else{
+      SFX.lock();
+      spawn(); draw();
+    }
+  }
+
+  function applyClear(){
+    var rows=clearing.rows;
+    rows.sort(function(a,b){return a-b;});
+    for(var i=0;i<rows.length;i++){
+      board.splice(rows[i],1);
+      board.unshift(new Array(COLS).fill(EMPTY));
+    }
+    var pts=[0,100,300,500,800][rows.length]||1000;
+    score+=pts*level;
+    lines+=rows.length;
+    var newLevel=startLevel+Math.floor(lines/DIFF[difficulty].perLevel);
+    if(newLevel>level){ level=newLevel; SFX.level(); }
+    clearing=null;
+    updateStats();
+    spawn(); draw();
+  }
+
+  function active(){ return running && !paused && !gameOver && !clearing; }
+
+  // ---------- Bucle ----------
+  function loop(time){
+    rafId=requestAnimationFrame(loop);
+    if(!running||paused||gameOver){ lastTime=time; return; }
+    var dt=time-lastTime; lastTime=time;
+
+    if(clearing){
+      clearing.t+=dt;
+      draw();
+      if(clearing.t>=160){ applyClear(); }
+      return;
+    }
+
+    dropTimer+=dt;
+    var base=SPEEDS[Math.min(level-1,SPEEDS.length-1)];
+    var speed=base*DIFF[difficulty].mult;
+    if(dropTimer>=speed){
+      dropTimer=0;
+      if(!collides(piece, piece.shape, piece.x, piece.y+1)){ piece.y++; }
+      else{ lockPiece(); }
+      draw();
+    }
+  }
+
+  // ---------- Dibujo ----------
+  function roundRectPath(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+  // Aclara (amt>0) u oscurece (amt<0) un color hex hacia blanco/negro.
+  function shade(hex, amt){
+    var c=hex.replace('#','');
+    var r=parseInt(c.substr(0,2),16), g=parseInt(c.substr(2,2),16), b=parseInt(c.substr(4,2),16);
+    if(amt>=0){ r+=(255-r)*amt; g+=(255-g)*amt; b+=(255-b)*amt; }
+    else { var k=1+amt; r*=k; g*=k; b*=k; }
+    return "rgb("+(r|0)+","+(g|0)+","+(b|0)+")";
+  }
+  // Bloque moderno: degradado vertical, canto de cristal y reflejo superior.
+  function drawBlock(ctx,x,y,size,color){
+    var pad=Math.max(1,size*0.045), r=Math.max(3,size*0.24);
+    var px=x+pad, py=y+pad, s=size-pad*2;
+    roundRectPath(ctx,px,py,s,s,r);
+    var grad=ctx.createLinearGradient(px,py,px,py+s);
+    grad.addColorStop(0, shade(color,0.30));
+    grad.addColorStop(0.55, color);
+    grad.addColorStop(1, shade(color,-0.20));
+    ctx.fillStyle=grad; ctx.fill();
+    var lw=Math.max(1,size*0.05);
+    ctx.lineWidth=lw; ctx.strokeStyle="rgba(255,255,255,0.22)";
+    roundRectPath(ctx,px+lw/2,py+lw/2,s-lw,s-lw,Math.max(2,r-1));
+    ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,0.32)";
+    roundRectPath(ctx,px+s*0.16,py+s*0.12,s*0.68,s*0.18,s*0.09);
+    ctx.fill();
+  }
+
+  function draw(){
+    var w=boardCanvas.width, h=boardCanvas.height;
+    bctx.clearRect(0,0,w,h);
+
+    // cuadrícula
+    bctx.strokeStyle=getCSS("--grid");
+    bctx.lineWidth=1;
+    for(var x=1;x<COLS;x++){
+      bctx.beginPath();
+      bctx.moveTo(x*CELL+0.5,0); bctx.lineTo(x*CELL+0.5,h); bctx.stroke();
+    }
+    for(var y=1;y<ROWS;y++){
+      bctx.beginPath();
+      bctx.moveTo(0,y*CELL+0.5); bctx.lineTo(w,y*CELL+0.5); bctx.stroke();
+    }
+
+    // piezas fijas
+    for(var ry=0;ry<ROWS;ry++){
+      for(var rx=0;rx<COLS;rx++){
+        var v=board[ry][rx];
+        if(v){
+          if(clearing && clearing.rows.indexOf(ry)>=0){
+            var a=0.6+0.4*Math.abs(Math.sin(clearing.t/30));
+            bctx.save();
+            bctx.globalAlpha=a;
+            bctx.shadowColor="rgba(255,255,255,0.85)";
+            bctx.shadowBlur=CELL*0.3;
+            drawBlock(bctx,rx*CELL,ry*CELL,CELL,"#ffffff");
+            bctx.restore();
+          }else{
+            drawBlock(bctx,rx*CELL,ry*CELL,CELL,v);
+          }
+        }
+      }
+    }
+
+    if(piece && !clearing){
+      // resplandor de la pieza activa (halo de color que da sensación de flotar)
+      bctx.save();
+      bctx.shadowColor=piece.color;
+      bctx.shadowBlur=CELL*0.4;
+      bctx.fillStyle=piece.color;
+      for(var sr=0;sr<piece.shape.length;sr++){
+        for(var sc=0;sc<piece.shape[sr].length;sc++){
+          if(piece.shape[sr][sc]){
+            var syy=piece.y+sr; if(syy<0) continue;
+            var sp=CELL*0.06;
+            roundRectPath(bctx,(piece.x+sc)*CELL+sp,syy*CELL+sp,CELL-sp*2,CELL-sp*2,CELL*0.24);
+            bctx.fill();
+          }
+        }
+      }
+      bctx.restore();
+      // pieza activa (bloques detallados encima del resplandor)
+      for(var pr=0;pr<piece.shape.length;pr++){
+        for(var pc=0;pc<piece.shape[pr].length;pc++){
+          if(piece.shape[pr][pc]){
+            var yy=piece.y+pr;
+            if(yy<0) continue;
+            drawBlock(bctx,(piece.x+pc)*CELL,yy*CELL,CELL,piece.color);
+          }
+        }
+      }
+    }
+  }
+
+  function drawNext(){
+    var w=nextCanvas.width/DPR, h=nextCanvas.height/DPR;   // tamaño lógico (CSS px)
+    nctx.clearRect(0,0,w,h);
+    if(!nextPiece) return;
+    var s=nextPiece.shape, cell=18;
+    // recorte de filas/columnas vacías para centrar
+    var minR=s.length,maxR=0,minC=s[0].length,maxC=0;
+    for(var r=0;r<s.length;r++)for(var c=0;c<s[r].length;c++){
+      if(s[r][c]){ if(r<minR)minR=r; if(r>maxR)maxR=r; if(c<minC)minC=c; if(c>maxC)maxC=c; }
+    }
+    var pw=(maxC-minC+1)*cell, ph=(maxR-minR+1)*cell;
+    var ox=(w-pw)/2, oy=(h-ph)/2;
+    for(var rr=minR;rr<=maxR;rr++)for(var cc=minC;cc<=maxC;cc++){
+      if(s[rr][cc]) drawBlock(nctx, ox+(cc-minC)*cell, oy+(rr-minR)*cell, cell, nextPiece.color);
+    }
+  }
+
+  function getCSS(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // ---------- Interfaz ----------
+  function updateStats(){
+    elScore.textContent=score;
+    elLevel.textContent=level;
+    elLines.textContent=lines;
+    if(score>record){ record=score; elRecord.textContent=record; saveRecord(); }
+  }
+
+  function saveRecord(){ try{ localStorage.setItem("apila_record", String(record)); }catch(e){} }
+  function loadRecord(){
+    try{ var v=parseInt(localStorage.getItem("apila_record"),10); if(!isNaN(v)) record=v; }catch(e){}
+    elRecord.textContent=record;
+  }
+
+  // ---------- Preferencias (sonido, dificultad, nivel inicial) ----------
+  function savePrefs(){
+    try{ localStorage.setItem("apila_prefs", JSON.stringify({s:soundOn, d:difficulty, l:startLevel, m:music.on})); }catch(e){}
+  }
+  function loadPrefs(){
+    try{
+      var p=JSON.parse(localStorage.getItem("apila_prefs"));
+      if(p){
+        if(typeof p.s==="boolean") soundOn=p.s;
+        if(typeof p.m==="boolean") music.on=p.m;
+        if(DIFF[p.d]) difficulty=p.d;
+        if(p.l>=1 && p.l<=10) startLevel=p.l;
+      }
+    }catch(e){}
+  }
+  function syncOptionsUI(){
+    var segBtns=document.querySelectorAll("#diffSeg .seg-btn");
+    for(var i=0;i<segBtns.length;i++){
+      segBtns[i].classList.toggle("is-active", segBtns[i].getAttribute("data-diff")===difficulty);
+    }
+    document.getElementById("startLevelVal").textContent=startLevel;
+    soundToggle.classList.toggle("is-off", !soundOn);
+    musicToggle.classList.toggle("is-off", !music.on);
+  }
+
+  // ---------- Flujo de partida ----------
+  function startGame(){
+    ensureAudio();
+    board=newBoard();
+    score=0; lines=0; level=startLevel; clearing=null;
+    bag=[]; nextPiece=null;
+    gameOver=false; paused=false; running=true; dropTimer=0;
+    updateStats();
+    startOverlay.hidden=true; pauseOverlay.hidden=true; overOverlay.hidden=true;
+    spawn(); draw();
+    startMusic();
+  }
+
+  function endGame(){
+    gameOver=true; running=false;
+    stopMusic();
+    SFX.over();
+    finalScore.textContent=score;
+    finalMsg.textContent = score>=record && score>0 ? "¡Nuevo récord!" :
+                           score>0 ? ("Líneas: "+lines+" · Nivel "+level) : "Inténtalo de nuevo";
+    overOverlay.hidden=false;
+  }
+
+  function togglePause(){
+    if(gameOver||!running) return;
+    paused=!paused;
+    pauseOverlay.hidden=!paused;
+    if(paused){ stopMusic(); } else { startMusic(); }
+  }
+
+  // ---------- Botones ----------
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+  document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  document.getElementById("restartFromPause").addEventListener("click", startGame);
+  document.getElementById("pauseBtn").addEventListener("click", togglePause);
+  document.getElementById("rotateBtn").addEventListener("click", function(){ rotate(); });
+  document.getElementById("hardBtn").addEventListener("click", function(){ hardDrop(); });
+
+  // Selector de dificultad
+  document.getElementById("diffSeg").addEventListener("click", function(e){
+    var btn=e.target.closest(".seg-btn"); if(!btn) return;
+    difficulty=btn.getAttribute("data-diff");
+    syncOptionsUI(); savePrefs();
+  });
+
+  // Nivel inicial (velocidad de arranque)
+  document.getElementById("lvlDown").addEventListener("click", function(){
+    if(startLevel>1){ startLevel--; syncOptionsUI(); savePrefs(); }
+  });
+  document.getElementById("lvlUp").addEventListener("click", function(){
+    if(startLevel<10){ startLevel++; syncOptionsUI(); savePrefs(); }
+  });
+
+  // Sonido on/off
+  soundToggle.addEventListener("click", function(){
+    soundOn=!soundOn;
+    syncOptionsUI(); savePrefs();
+    if(soundOn){ ensureAudio(); SFX.rotate(); }
+  });
+
+  // Música on/off (independiente de los efectos)
+  musicToggle.addEventListener("click", function(){
+    music.on=!music.on;
+    syncOptionsUI(); savePrefs();
+    if(music.on){
+      ensureAudio();
+      if(running && !paused && !gameOver){ startMusic(); }
+    }else{
+      stopMusic();
+    }
+  });
+
+  // Auto-repetición para mover/bajar manteniendo pulsado
+  function holdable(id, fn, firstDelay, repeat){
+    var el=document.getElementById(id), to=null, iv=null;
+    function start(e){
+      e.preventDefault();
+      fn();
+      to=setTimeout(function(){ iv=setInterval(fn, repeat); }, firstDelay);
+    }
+    function stop(){ clearTimeout(to); clearInterval(iv); to=iv=null; }
+    el.addEventListener("pointerdown", start);
+    el.addEventListener("pointerup", stop);
+    el.addEventListener("pointerleave", stop);
+    el.addEventListener("pointercancel", stop);
+  }
+  holdable("leftBtn", function(){ move(-1); }, 220, 90);
+  holdable("rightBtn", function(){ move(1); }, 220, 90);
+  holdable("downBtn", function(){ softDrop(); }, 150, 60);
+
+  // ---------- Teclado (para probar en PC/Chromebook) ----------
+  window.addEventListener("keydown", function(e){
+    if(gameOver && (e.key===" "||e.key==="Enter")){ startGame(); e.preventDefault(); return; }
+    if(e.key==="p"||e.key==="P"){ togglePause(); return; }
+    if(!active()) return;
+    switch(e.key){
+      case "ArrowLeft": move(-1); e.preventDefault(); break;
+      case "ArrowRight": move(1); e.preventDefault(); break;
+      case "ArrowDown": softDrop(); e.preventDefault(); break;
+      case "ArrowUp": case "x": case "X": rotate(); e.preventDefault(); break;
+      case " ": hardDrop(); e.preventDefault(); break;
+    }
+  });
+
+  // ---------- Gestos sobre el tablero ----------
+  (function gestures(){
+    var sx=0, sy=0, lastX=0, st=0, moved=0, dragging=false;
+    boardCanvas.addEventListener("pointerdown", function(e){
+      if(!active()) return;
+      dragging=true; sx=lastX=e.clientX; sy=e.clientY; st=Date.now(); moved=0;
+      boardCanvas.setPointerCapture(e.pointerId);
+    });
+    boardCanvas.addEventListener("pointermove", function(e){
+      if(!dragging||!active()) return;
+      var dx=e.clientX-lastX;
+      var threshold=CELL*0.7;
+      if(Math.abs(dx)>=threshold){
+        var steps=Math.trunc(dx/threshold);
+        for(var i=0;i<Math.abs(steps);i++){ move(steps>0?1:-1); }
+        lastX+=steps*threshold;
+        moved+=Math.abs(dx);
+      }
+    });
+    boardCanvas.addEventListener("pointerup", function(e){
+      if(!dragging) return; dragging=false;
+      if(!active()) return;
+      var totX=e.clientX-sx, totY=e.clientY-sy, dt=Date.now()-st;
+      // toque rápido sin desplazamiento => girar
+      if(Math.abs(totX)<10 && Math.abs(totY)<10 && dt<250){ rotate(); return; }
+      // deslizamiento hacia abajo rápido => soltar
+      if(totY>CELL*2.2 && totY>Math.abs(totX) && dt<400){ hardDrop(); }
+    });
+  })();
+
+  // Evita el menú contextual al mantener pulsado
+  window.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+
+  // ---------- Tamaño responsivo ----------
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1, 2);
+    var wrap=boardCanvas.parentElement.parentElement; // .board-wrap
+    var availH=wrap.clientHeight-12;       // menos padding del marco
+    var availW=wrap.clientWidth-12;
+    var cellByH=Math.floor(availH/ROWS);
+    var cellByW=Math.floor(availW/COLS);
+    CELL=Math.max(12, Math.min(cellByH, cellByW));
+    var cssW=CELL*COLS, cssH=CELL*ROWS;
+    boardCanvas.style.width=cssW+"px";
+    boardCanvas.style.height=cssH+"px";
+    boardCanvas.width=Math.round(cssW*DPR);
+    boardCanvas.height=Math.round(cssH*DPR);
+    bctx.setTransform(DPR,0,0,DPR,0,0);
+    // el dibujo usa CELL en px CSS, así que reajustamos CELL a px CSS reales
+    CELL=cssW/COLS;
+
+    // canvas "siguiente"
+    var nW=56, nH=42;
+    nextCanvas.style.width=nW+"px"; nextCanvas.style.height=nH+"px";
+    nextCanvas.width=Math.round(nW*DPR); nextCanvas.height=Math.round(nH*DPR);
+    nctx.setTransform(DPR,0,0,DPR,0,0);
+
+    if(board){ draw(); drawNext(); }
+  }
+  window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", function(){ setTimeout(resize,200); });
+
+  // ---------- Arranque ----------
+  loadRecord();
+  loadPrefs();
+  syncOptionsUI();
+  board=newBoard();
+  resize();
+  draw();
+  lastTime=performance.now();
+  rafId=requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
