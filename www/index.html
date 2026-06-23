@@ -548,12 +548,28 @@
   const b64=p=>p.url.split(',')[1];
   const fname=p=>'Camara_'+new Date(p.ts).toISOString().replace(/[:.]/g,'-')+'.jpg';
 
+  const ALBUM='Camara';
+  async function albumId(C){
+    try{
+      const res=await C.Media.getAlbums();
+      let a=(res.albums||[]).find(x=>x.name===ALBUM);
+      if(!a){ await C.Media.createAlbum({name:ALBUM});
+        const res2=await C.Media.getAlbums();
+        a=(res2.albums||[]).find(x=>x.name===ALBUM);
+      }
+      return a?a.identifier:null;
+    }catch(e){console.error('albumId',e);return null;}
+  }
+
   // Guardar en la galería del móvil (plugin Media) → respaldo: Documentos → descarga web
   vSave.addEventListener('click',async()=>{const p=photos.find(x=>x.id===viewerId);if(!p)return;
     const C=CAP();
     if(C&&C.Media){
       try{
-        await C.Media.savePhoto({path:p.url,fileName:fname(p).replace(/\.jpg$/,'')});
+        const id=await albumId(C);
+        const opts={path:p.url,fileName:fname(p).replace(/\.jpg$/,'')};
+        if(id)opts.albumIdentifier=id;
+        await C.Media.savePhoto(opts);
         toast('Guardada en la galería ✅');return;
       }catch(e){console.error('Media.savePhoto falló',e);
         toast('Media: '+((e&&(e.message||e.errorMessage))||e||'error').toString().slice(0,80));
