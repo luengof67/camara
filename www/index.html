@@ -555,7 +555,9 @@
       try{
         await C.Media.savePhoto({path:p.url,fileName:fname(p).replace(/\.jpg$/,'')});
         toast('Guardada en la galería ✅');return;
-      }catch(e){console.error('Media.savePhoto falló',e);}
+      }catch(e){console.error('Media.savePhoto falló',e);
+        toast('Media: '+((e&&(e.message||e.errorMessage))||e||'error').toString().slice(0,80));
+        await wait(2700);}
     }
     if(C&&C.Filesystem){
       try{
